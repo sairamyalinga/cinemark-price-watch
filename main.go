@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"io/ioutil"
+	_"io/ioutil"
 
 	"github.com/PuerkitoBio/goquery"
 )
@@ -30,7 +30,6 @@ func main(){
     //     fmt.Println("Error reading response body:", err)
     //     return
     // }
-
     // htmlContent := string(body)
     // fmt.Println(htmlContent)
 
@@ -40,6 +39,10 @@ func main(){
 	if err != nil {
 		log.Fatal("Error loading the document:", err)
 	}
+
+	doc.Find("div.showtimeMovieBlock").Each(func(i int, s *goquery.Selection) {
+		fmt.Printf("Review %d: %s\n", i, s.Find("a.movieLink > h3").Text());
+	})
 	
 
 }
