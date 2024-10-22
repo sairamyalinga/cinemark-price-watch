@@ -36,16 +36,18 @@ func main() {
 
 	doc.Find("div.showtimeMovieBlock").Each(func(i int, s *goquery.Selection) {
 		title := s.Find("a.movieLink > h3").Text()
-
 		var formats []string
 		s.Find(".print-type-list").Each(func(j int, f *goquery.Selection) {
 			formats = append(formats, strings.TrimSpace(f.Text()))
 		})
-
 		movies[title] = make(map[string][]string)
 		s.Find(".showtimeMovieTimes").Each(func(j int, f *goquery.Selection) {
 			f.Find("a.showtime-link").Each(func(k int, t *goquery.Selection) {
-				movies[title][formats[j]] = append(movies[title][formats[j]], t.Text())
+				seatingURL, exists := t.Attr("href")
+				if exists{
+				fmt.Print("exists")
+				movies[title][formats[j]] = append(movies[title][formats[j]], t.Text(), seatingURL)
+			}
 			})
 		})
 	})
