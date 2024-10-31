@@ -1,10 +1,11 @@
 package main
 
 import (
-	"encoding/json"
+	_"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
+	"strings"
 
 	"github.com/PuerkitoBio/goquery"
 )
@@ -13,6 +14,8 @@ type Showtime struct {
 	Time string
 	URL string
 }
+
+var movies = make(map[string]map[string][]Showtime)
 
 func getPriceDetails(url string) string {
 	details, err := http.Get(url)
@@ -27,11 +30,27 @@ func getPriceDetails(url string) string {
 	if err != nil {
 		log.Fatal("Error loading the Seating details document:", err)
 	}
-	price := doc.Find("div.ticketSelectorHeader > h3").Text()
-	fmt.Println(price);
+	price := doc.Find("div#ticketSelectorHeader > h3").Text()
+	price = strings.Split(price," ")[1]
 	return price
 
 }
+
+func getURL (movie string, time string) (string, error) {
+	formats, exists := movies[movie]
+	if !exists{
+		return "", fmt.Errorf("Movie doesn't exist")
+	}
+	for _, showtimes := range(formats){
+		for _, st := range(showtimes){
+			if st.Time == time {
+				return st.URL, nil
+			}
+		}
+	}
+	return "", fmt.Errorf("No show at that time")
+}
+
 
 func main() {
 
@@ -55,7 +74,6 @@ func main() {
 		log.Fatal("Error loading the document:", err)
 	}
 
-	movies := make(map[string]map[string][]Showtime)
 
 	doc.Find("div.showtimeMovieBlock").Each(func(i int, s *goquery.Selection) {
 		//get movie title
@@ -85,7 +103,6 @@ func main() {
 				if child.Is("div.showtimeMovieTimes"){
 					child.Find("a.showtime-link").Each(func(l int, timeLink *goquery.Selection) {
 						seatingURL, exists := timeLink.Attr("href") //extract seating URls
-
 						//append show time and seating url
 						if exists {
 							times = append(times, Showtime{
@@ -94,7 +111,6 @@ func main() {
 							})
 						}
 					})
-
 					// add the showtimes to format
 					if currentFormat != "" {
 						movies[title][currentFormat] = times
@@ -106,15 +122,7 @@ func main() {
 			if currentFormat == "" && len(times) > 0 {
 				movies[title]["General"] = times // default key if no format is found
 			}
-		})
-
-		
+		})	
 	})
-
-	b, err := json.MarshalIndent(movies, "", "  ")
-	if err != nil {
-		fmt.Println("error:", err)
-	}
-	fmt.Print(string(b))
 
 }
