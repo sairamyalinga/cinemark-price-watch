@@ -9,6 +9,11 @@ import (
 	"github.com/PuerkitoBio/goquery"
 )
 
+type Showtime struct {
+	Time string
+	URL string
+}
+
 func getPriceDetails(url string) string {
 	details, err := http.Get(url)
 	if err != nil {
@@ -29,10 +34,11 @@ func getPriceDetails(url string) string {
 }
 
 func main() {
+
 	//Get request to HTML page
 	url := "https://www.cinemark.com/theatres/wa-bellevue/cinemark-lincoln-square-cinemas-and-imax"
+	root := "https://www.cinemark.com"
 	res, err := http.Get(url)
-
 	if err != nil {
 		log.Println("Failed fetching data from website:", err)
 	}
@@ -45,49 +51,64 @@ func main() {
 
 	//Load the HTML doc
 	doc, err := goquery.NewDocumentFromReader(res.Body)
-
 	if err != nil {
 		log.Fatal("Error loading the document:", err)
 	}
 
-	movies := make(map[string]map[string][]string)
+	movies := make(map[string]map[string][]Showtime)
 
 	doc.Find("div.showtimeMovieBlock").Each(func(i int, s *goquery.Selection) {
 		//get movie title
 		title := s.Find("a.movieLink > h3").Text()
-		var formats []string
+		movies[title] = make(map[string][]Showtime)
+		var currentFormat string
+		var times []Showtime
 
-		//extract movie formats
-		s.Find(".attribute-list__item").Each(func(j int, f *goquery.Selection) {
-			aTag := f.Find("a")
-			if aTag.Length() > 0 {
-				dataId, exists := aTag.Attr("data-print-type")
-				if exists{
-					formats = append(formats, dataId)
+		//Extracting formats and times
+		s.Find("div.col-xs-12.col-sm-10").Each(func(j int, f *goquery.Selection){
+			f.Children().Each(func(k int, child *goquery.Selection){
+				// check if child is format
+				if child.Is("ul.attribute-list"){
+					child.Find("li.attribute-list__item").Each(func(l int, formatItem *goquery.Selection) {
+						aTag := formatItem.Find("a")
+						if aTag.Length() > 0 {
+							dataId, exists := aTag.Attr("data-print-type")
+							if exists {
+								currentFormat = dataId // Update current format
+							}
+						} else {
+							currentFormat = formatItem.Text() //Update current format (get text if its not <a> tag)
+						}
+					})
 				}
-			} else {
-				formats = append(formats, f.Text())
-			}
+				//check if child is times list
+				if child.Is("div.showtimeMovieTimes"){
+					child.Find("a.showtime-link").Each(func(l int, timeLink *goquery.Selection) {
+						seatingURL, exists := timeLink.Attr("href") //extract seating URls
 
-		})
-		fmt.Println(formats)
-		movies[title] = make(map[string][]string)
-		x := 0
-		s.Find(".showtimeMovieTimes").Each(func(j int, f *goquery.Selection) {
-			movieTag := f.Find("a.showtime-link")
-			if movieTag.Length() > 0{
-			f.Find("a.showtime-link").Each(func(k int, t *goquery.Selection) {
-				fmt.Println("Movie and format:", title, formats[x])
-				seatingURL, exists := t.Attr("href")
-				if exists {
-					movies[title][formats[x]] = append(movies[title][formats[x]], t.Text(), seatingURL)
-					fmt.Println(x, t.Text())
+						//append show time and seating url
+						if exists {
+							times = append(times, Showtime{
+								Time: timeLink.Text(), 
+								URL: root+seatingURL,
+							})
+						}
+					})
+
+					// add the showtimes to format
+					if currentFormat != "" {
+						movies[title][currentFormat] = times
+						times = nil
+						currentFormat = ""
+					}
 				}
 			})
-			x = x + 1;
-		}     
-			
+			if currentFormat == "" && len(times) > 0 {
+				movies[title]["General"] = times // default key if no format is found
+			}
 		})
+
+		
 	})
 
 	b, err := json.MarshalIndent(movies, "", "  ")
