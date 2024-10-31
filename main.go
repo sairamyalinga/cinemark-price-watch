@@ -1,11 +1,12 @@
 package main
 
 import (
-	_"encoding/json"
+	_ "encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"strings"
+	_"time"
 
 	"github.com/PuerkitoBio/goquery"
 )
@@ -17,45 +18,12 @@ type Showtime struct {
 
 var movies = make(map[string]map[string][]Showtime)
 
-func getPriceDetails(url string) string {
-	details, err := http.Get(url)
-	if err != nil {
-		log.Println("Failed to fetch price and seat arrangement:", err)
-	}
-	defer details.Body.Close()
-	if details.StatusCode != 200 {
-		log.Printf("Status code error: %s", details.Status)
-	}
-	doc, err := goquery.NewDocumentFromReader(details.Body)
-	if err != nil {
-		log.Fatal("Error loading the Seating details document:", err)
-	}
-	price := doc.Find("div#ticketSelectorHeader > h3").Text()
-	price = strings.Split(price," ")[1]
-	return price
+// Parse the HTML of website
 
-}
-
-func getURL (movie string, time string) (string, error) {
-	formats, exists := movies[movie]
-	if !exists{
-		return "", fmt.Errorf("Movie doesn't exist")
-	}
-	for _, showtimes := range(formats){
-		for _, st := range(showtimes){
-			if st.Time == time {
-				return st.URL, nil
-			}
-		}
-	}
-	return "", fmt.Errorf("No show at that time")
-}
-
-
-func main() {
+func parseHTML(url string) {
 
 	//Get request to HTML page
-	url := "https://www.cinemark.com/theatres/wa-bellevue/cinemark-lincoln-square-cinemas-and-imax"
+	url = "https://www.cinemark.com/theatres/wa-bellevue/cinemark-lincoln-square-cinemas-and-imax"
 	root := "https://www.cinemark.com"
 	res, err := http.Get(url)
 	if err != nil {
@@ -124,5 +92,51 @@ func main() {
 			}
 		})	
 	})
+	
+}
+
+//function to get price for the show
+func getPriceDetails(url string) string {
+	details, err := http.Get(url)
+	if err != nil {
+		log.Println("Failed to fetch price and seat arrangement:", err)
+	}
+	defer details.Body.Close()
+	if details.StatusCode != 200 {
+		log.Printf("Status code error: %s", details.Status)
+	}
+	doc, err := goquery.NewDocumentFromReader(details.Body)
+	if err != nil {
+		log.Fatal("Error loading the Seating details document:", err)
+	}
+	price := doc.Find("div#ticketSelectorHeader > h3").Text()
+	price = strings.Split(price," ")[1]
+	return price
+
+}
+
+// function to retrieve seating url from records
+func getURL (movie string, time string) (string, error) {
+	formats, exists := movies[movie]
+	if !exists{
+		return "", fmt.Errorf("Movie doesn't exist")
+	}
+	for _, showtimes := range(formats){
+		for _, st := range(showtimes){
+			if st.Time == time {
+				return st.URL, nil
+			}
+		}
+	}
+	return "", fmt.Errorf("No show at that time")
+}
+
+
+func main() {
+
+	//TODO: In an infinite for loop parseHTML and get the details and then check the price came down to desired
+	//time.Sleep(1 * time.Hour)
+
+	
 
 }
